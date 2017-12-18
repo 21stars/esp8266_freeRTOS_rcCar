@@ -5,6 +5,7 @@
  * Copyright (C) 2016 Ruslan V. Uss <unclerus@gmail.com>
  * BSD Licensed as described in the file LICENSE
  */
+
 /*
  * Softuart example
  *
@@ -13,6 +14,14 @@
  * Copyright (c) 2015 plieningerweb
  *
  * MIT Licensed as described in the file LICENSE
+ */
+
+/* Implementation of PWM support for the Espressif SDK.
+ *
+ * Part of esp-open-rtos
+ * Copyright (C) 2015 Guillem Pascual Ginovart (https://github.com/gpascualg)
+ * Copyright (C) 2015 Javier Cardona (https://github.com/jcard0na)
+ * BSD Licensed as described in the file LICENSE
  */
 
 #include <stdio.h>
@@ -35,14 +44,14 @@
 #define ECHO_PIN    12	//D6
 
 #define MAX_DISTANCE_CM 500 // 5m max
-#define MAX_PWM_DUTY 5   // %
+#define MAX_PWM_DUTY 13   // %
 
 #define A_PLUS 0	// A+ D3
 #define A_MINUS 5	// A- D1
 #define B_PLUS 2	// B+ D2
 #define B_MINUS 4	// B- D4
 
-int32_t distance = 9999;
+int32_t distance = 500;
 char key = 'p';
 char string_out[10];
 
@@ -57,17 +66,7 @@ void bluetooth(void *pvParameters)
         if (!softuart_available(0))
             continue;
         key = softuart_read(0);
-	//used to know distance	
-	if(key=='x')
-	{
-	  if(distance < 15) softuart_put(0,'a');
-	  else if((15 <= distance) && (distance < 30)) softuart_put(0,'b');
-	  else if((30 <= distance) && (distance < 45)) softuart_put(0,'c');
-	  else if((45 <= distance) && (distance < 60)) softuart_put(0,'d');
-	  if(60<=distance) softuart_put(0,'b');
-	}
-	else softuart_put(key);
-        vTaskDelay(100);
+        vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
         count++;
     }
@@ -86,70 +85,66 @@ void ultrasonic(void *pvParameters)
 
     uint32_t count = 0;
     while(1) {
-	//  l = (v / t) / 2
+	//  l = (v * t) / 2
 	uint32_t distance_temp = ultrasoinc_measure_cm(&sensor, MAX_DISTANCE_CM);
 	//receive error(no signal or farther than MAX_DISTANCE)        
 	if (distance_temp < 0)
 	    break;
         else
-	{
 	  distance = distance_temp;
-//	  printf("dist: %d\n", distance_temp);
-	}
-        vTaskDelay(100);
+        vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
         count++;
     }
-
 }
-
-
 
 void motorcontrol(void *pvParameters)
 {
     QueueHandle_t *queue = (QueueHandle_t *)pvParameters;
     uint32_t count = 0;
-    
     uint8_t pins[2];
     pins[0] = A_MINUS;	// A-
     pins[1] = B_MINUS;	// B-
-    pwm_init(2, pins, true);  //enable pwm pin A-, B-
     //PWM_FREQ
     pwm_set_freq(1000);
     //MAX POWER = (MAX_PWM_DUTY)%
     pwm_set_duty(UINT16_MAX * MAX_PWM_DUTY/(double)100);
     pwm_start();
+    //GPIO_ENABLE
     gpio_enable(A_PLUS, GPIO_OUTPUT);
     gpio_enable(B_PLUS, GPIO_OUTPUT);
     
     while(1) {
-	if(distance < 30) key ='p';
+	  //stops if too close
+	if(distance < 30)
+	  if (!((key=='p')||(key=='s'))) key = 'p';
 	switch(key){
 	  //forward
-	  case 'w': case 'W':
+	  case 'w':
 	    pwm_init(2,pins,true);
 	    gpio_write(A_PLUS,1);
 	    gpio_write(B_PLUS,1);
 	    break;
 	  //backward
-	  case 's': case 'S':
+	  case 's':
+	    pwm_init(2,pins,true);
 	    gpio_write(A_PLUS,0);
 	    gpio_write(B_PLUS,0);
 	    break;
 	  //left
-	  case 'a': case 'A':
+	  case 'a':
 	    pwm_init(2,pins,true);
 	    gpio_write(A_PLUS,1);
 	    gpio_write(B_PLUS,0);
 	    break;
 	  //right
-	  case 'd': case 'D':
+	  case 'd':
 	    pwm_init(2,pins,true);
 	    gpio_write(A_PLUS,0);
-	    gpio_write(B_PLUS,0);
+	    gpio_write(B_PLUS,1);
 	    break;
 	  //stop
-	  case 'p': case 'P':
+	  case 'p':
 	    gpio_write(A_MINUS,0);
 	    gpio_write(B_MINUS,0);
 	    break;
@@ -157,7 +152,8 @@ void motorcontrol(void *pvParameters)
 	  default:
 	    break;
 	}
-        vTaskDelay(200);
+	
+        vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
         count++;
     }
@@ -169,11 +165,8 @@ void user_init(void)
 {
     uart_set_baud(0, 115200);
     printf("SDK version:%s\n", sdk_system_get_sdk_version());
-    mainqueue = xQueueCreate(10, sizeof(uint32_t));
+    mainqueue = xQueueCreate(4, sizeof(uint32_t));
     xTaskCreate(bluetooth, "bluetooth", 256, &mainqueue, 2, NULL);
-    xTaskCreate(ultrasonic, "ultrasonic", 256, &mainqueue, 2, NULL);
-    xTaskCreate(motorcontrol, "motorcontrol", 256, &mainqueue, 2, NULL);
+    xTaskCreate(ultrasonic, "ultrasonic", 256, &mainqueue, 4, NULL);
+    xTaskCreate(motorcontrol, "motorcontrol", 256, &mainqueue, 3, NULL);
 }
-
-
-
