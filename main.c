@@ -77,7 +77,7 @@ void bluetooth(void *pvParameters)
             continue;
 		//get user input(key)
 		key = softuart_read(0);
-        vTaskDelay(20);
+        vTaskDelay(10);
         xQueueSend(*queue, &count, 0);
         count++;
     }
@@ -105,7 +105,7 @@ void ultrasonic(void *pvParameters)
 	//received ultrasonic
 	else
 	  distance = distance_temp;
-        vTaskDelay(20);
+        vTaskDelay(10);
         xQueueSend(*queue, &count, 0);
         count++;
     }
@@ -166,7 +166,7 @@ void motorcontrol(void *pvParameters)
 	  default:
 	    break;
 	}
-        vTaskDelay(20);
+        vTaskDelay(10);
         xQueueSend(*queue, &count, 0);
         count++;
     }
