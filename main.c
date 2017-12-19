@@ -23,7 +23,12 @@
  * Copyright (C) 2015 Javier Cardona (https://github.com/jcard0na)
  * BSD Licensed as described in the file LICENSE
  */
-
+/*
+ * Implementation for Embedded System Programming
+ * Hansung Lee
+ * Seungyun Jung
+ * 2017-12
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include "espressif/esp_common.h"
@@ -36,6 +41,9 @@
 #include "ultrasonic/ultrasonic.h"
 #include "softuart/softuart.h"
 #include "pwm.h"
+
+
+//define GPIO PIN
 
 #define RX_PIN 3 //D9
 #define TX_PIN 1 //D10
@@ -50,22 +58,25 @@
 #define A_MINUS 5	// A- D1
 #define B_PLUS 2	// B+ D2
 #define B_MINUS 4	// B- D4
+////////////////
 
 int32_t distance = 500;
 char key = 'p';
-char string_out[10];
 
 void bluetooth(void *pvParameters)
 {
+	//add to main queue
     QueueHandle_t *queue = (QueueHandle_t *)pvParameters;
     // Baudrate 9600
     softuart_open(0, 9600, RX_PIN, TX_PIN);
     uint32_t count = 0;
     while (true)
     {
-        if (!softuart_available(0))
+		//if there is any user input(Bluetooth)
+		if (!softuart_available(0))
             continue;
-        key = softuart_read(0);
+		//get user input(key)
+		key = softuart_read(0);
         vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
         count++;
@@ -74,6 +85,7 @@ void bluetooth(void *pvParameters)
 
 void ultrasonic(void *pvParameters)
 {
+	//add to main queue
     QueueHandle_t *queue = (QueueHandle_t *)pvParameters;
     //Trigger = GPIO14 = D5 // ECHO_PIN = 12 = D6
     ultrasonic_sensor_t sensor = {
@@ -90,7 +102,8 @@ void ultrasonic(void *pvParameters)
 	//receive error(no signal or farther than MAX_DISTANCE)        
 	if (distance_temp < 0)
 	    break;
-        else
+	//received ultrasonic
+	else
 	  distance = distance_temp;
         vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
@@ -100,6 +113,7 @@ void ultrasonic(void *pvParameters)
 
 void motorcontrol(void *pvParameters)
 {
+	//add to main queue
     QueueHandle_t *queue = (QueueHandle_t *)pvParameters;
     uint32_t count = 0;
     uint8_t pins[2];
@@ -152,7 +166,6 @@ void motorcontrol(void *pvParameters)
 	  default:
 	    break;
 	}
-	
         vTaskDelay(20);
         xQueueSend(*queue, &count, 0);
         count++;
@@ -163,11 +176,16 @@ static QueueHandle_t mainqueue;
 
 void user_init(void)
 {
+	//set uart for PC <-> ESP8266
     uart_set_baud(0, 115200);
     printf("SDK version:%s\n", sdk_system_get_sdk_version());
-    mainqueue = xQueueCreate(4, sizeof(uint32_t));
-    xTaskCreate(bluetooth, "bluetooth", 256, &mainqueue, 2, NULL);
-    xTaskCreate(ultrasonic, "ultrasonic", 256, &mainqueue, 4, NULL);
-    xTaskCreate(motorcontrol, "motorcontrol", 256, &mainqueue, 3, NULL);
+    //create main queue
+	mainqueue = xQueueCreate(4, sizeof(uint32_t));
+    //bluetooth
+	xTaskCreate(bluetooth, "bluetooth", 256, &mainqueue, 2, NULL);
+    //ultrasonic
+	xTaskCreate(ultrasonic, "ultrasonic", 256, &mainqueue, 4, NULL);
+    //motorcontrol
+	xTaskCreate(motorcontrol, "motorcontrol", 256, &mainqueue, 3, NULL);
 }
 
