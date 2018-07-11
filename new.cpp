@@ -15,7 +15,7 @@ int main(int, char**)
 	if (!cap.isOpened())  // check if we succeeded
 		return -1;
 
-	for (;;)
+	for (int count =0; count < 10; count ++)
 	{
 		Mat frame, gray, edges, ROI, white, yellow, mask;
 		vector<Vec4i> lines;
@@ -43,30 +43,40 @@ int main(int, char**)
 			Point A(lines[i][0], lines[i][1]), B(lines[i][2], lines[i][3]);
 			//get angle
 			double angle = atan2((A.y - B.y), (A.x - B.x)) * 180 / CV_PI;
-			if(angle < 0)	( (angle < -90) ? (angle = angle + 360) : (angle = angle + 180) );
+			if(angle < 0)	(angle < -90) ? (angle = angle + 360) : (angle = angle + 180);
+
 			//rline..
-			if (((angle < 150) && (angle > 120)){
-				if (angle < langle) {
-					langle = angle;
-					lline = lines[i];
+			if ((angle < 150) && (angle > 120)){
+				cout << "rangle : "<<angle << endl;;
+
+				if (angle < rangle) {
+					rangle = angle;
+					rline = lines[i];
+
+					printf("new rline (%d, %d) (%d, %d) \n",lines[i][0], lines[i][1], lines[i][2], lines[i][3] );
 				}
 			}
 			//lline..
 			if ((angle > 30) && (angle < 60))){
-				if (angle > rangle){
-					rangle = angle;
-					rline = lines[i];
+				cout << "langle : "<<angle << endl;;
+
+				if (angle > langle){
+					langle = angle;
+					lline = lines[i];
+
+					printf("new lline (%d, %d) (%d, %d) \n",lines[i][0], lines[i][1], lines[i][2], lines[i][3] );
 				}
 			}
 		}
 
-		line(frame, lline, Scalar(0, 0, 255), 3, 8);
-		line(frame, rline, Scalar(0, 0, 255), 3, 8);
+		line(frame, Point(lline[0],lline[1]),Point(lline[2],lline[3]), Scalar(0, 0, 255), 3, 8);
+		line(frame, Point(rline[0],rline[1]),Point(rline[2],rline[3]), Scalar(0, 0, 255), 3, 8);
+
+//		line(frame, lline, Scalar(0, 0, 255), 3, 8);
+//		line(frame, rline, Scalar(0, 0, 255), 3, 8);
 
 //		imshow("edges", edges);
 		imshow("houghLine", frame);
-
-		if (waitKey(30) >= 0) break;
 	}
 	// the camera will be deinitialized automatically in VideoCapture destructor
 	return 0;
